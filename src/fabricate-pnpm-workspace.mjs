@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readdir, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 
 function text(value, name) {
@@ -8,19 +8,44 @@ function text(value, name) {
 }
 
 function relativePath(value) {
-  const path = text(value, "package path").replaceAll("\\", "/").replace(/^\.\//u, "").replace(/\/$/u, "");
-  if (path.startsWith("/") || path === ".." || path.startsWith("../") || path.includes("/../") || path.includes("\0")) throw new TypeError(`package path escapes customer territory: ${value}`);
+  const path = text(value, "package path").replaceAll("\\", "/");
+  // Canonical package roots cannot alias the root manifest, workspace policy,
+  // another manifest file, or any file outside the output territory.
+  const segments = path.split("/");
+  if (path.startsWith("/") || /^[A-Za-z]:/u.test(path) || path.includes("\0") ||
+      segments.some(segment => !segment || segment === "." || segment === ".." ||
+        segment === "package.json" || segment === "pnpm-workspace.yaml"))
+    throw new TypeError(`package path escapes or aliases customer territory: ${value}`);
   return path;
 }
 
 function exactVersion(value, name) {
   const version = text(value, `${name} version`);
-  if (!/^\d+\.\d+\.\d+$/u.test(version)) throw new TypeError(`${name} version must be exact semver`);
+  if (!/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u.test(version)) throw new TypeError(`${name} version must be exact semver`);
   return version;
 }
 
 function json(value) {
   return `${JSON.stringify(value, null, 2)}\n`;
+}
+
+function admitBuildPolicy(policy, pnpmVersion) {
+  if (policy === null || policy === undefined) return [];
+  if (!policy || typeof policy !== "object" || Array.isArray(policy) ||
+      Object.getPrototypeOf(policy) !== Object.prototype)
+    throw new TypeError("build policy must be an explicit matcher-to-boolean object");
+  const entries = Object.entries(policy);
+  for (const [matcher, allowed] of entries) {
+    if (!matcher.trim() || matcher !== matcher.trim() || typeof allowed !== "boolean")
+      throw new TypeError("build policy entries require non-empty exact matchers and boolean decisions");
+  }
+  // PNPM introduced allowBuilds in v10.26.0. Earlier versions can silently
+  // ignore a policy that this fabricator would otherwise appear to attest.
+  const [major, minor] = pnpmVersion.split(".").map(Number);
+  if (entries.length && (major < 10 || (major === 10 && minor < 26)))
+    throw new TypeError("build policy requires pnpm 10.26.0 or later");
+  return entries.sort(([left], [right]) => left.localeCompare(right))
+    .map(([matcher, allowed]) => `  ${JSON.stringify(matcher)}: ${allowed}`);
 }
 
 export function projectPnpmWorkspace(specification) {
@@ -34,16 +59,16 @@ export function projectPnpmWorkspace(specification) {
   if (duplicatePaths.length || duplicateNames.length) throw new TypeError("workspace package paths and identities must be unique");
   const internal = new Map(packages.map(({ manifest }) => [manifest.name, manifest.version]));
   const files = new Map();
+  const pnpmVersion = exactVersion(specification.pnpmVersion, "pnpm");
+  const policyLines = admitBuildPolicy(specification.buildPolicy, pnpmVersion);
   const root = {
     name: text(specification.root?.name, "root name"),
     version: exactVersion(specification.root?.version, "root"),
     private: true,
-    packageManager: `pnpm@${exactVersion(specification.pnpmVersion, "pnpm")}`,
+    packageManager: `pnpm@${pnpmVersion}`,
   };
   files.set("package.json", json(root));
-  const buildPolicy = specification.buildPolicy ?? {};
-  const policyLines = Object.entries(buildPolicy).sort(([left], [right]) => left.localeCompare(right)).map(([name, admitted]) => `  ${JSON.stringify(name)}: ${admitted === true ? "true" : "false"}`);
-  files.set("pnpm-workspace.yaml", `packages:\n${packages.map(({ path }) => `  - ${JSON.stringify(path)}`).join("\n")}\n${policyLines.length ? `allowBuilds:\n${policyLines.join("\n")}\n` : ""}`);
+  files.set("pnpm-workspace.yaml", `packages:\n${packages.map(({ path }) => `  - ${JSON.stringify(path)}`).join("\n")}\n${policyLines.length ? `strictDepBuilds: true\nallowBuilds:\n${policyLines.join("\n")}\n` : ""}`);
   for (const item of packages) {
     const manifest = structuredClone(item.manifest);
     for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
@@ -58,10 +83,13 @@ export function projectPnpmWorkspace(specification) {
 }
 
 export async function fabricatePnpmWorkspace({ specification, outputDirectory }) {
+  // Complete all pure admission before creating even an empty output directory.
+  const projection = projectPnpmWorkspace(specification);
   const output = resolve(outputDirectory);
   await mkdir(output, { recursive: true });
+  if ((await lstat(output)).isSymbolicLink())
+    throw new Error("customer workspace output territory may not be a symbolic link");
   if ((await readdir(output)).length) throw new Error("customer workspace output territory must be empty");
-  const projection = projectPnpmWorkspace(specification);
   for (const [path, body] of projection.files) {
     const target = resolve(output, path);
     const rel = relative(output, target);

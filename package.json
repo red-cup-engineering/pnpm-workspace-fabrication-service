@@ -24,7 +24,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "pack:dry-run": "npm pack --dry-run --ignore-scripts"
+    "pack:dry-run": "npm pack --dry-run --ignore-scripts",
+    "verify": "node --check src/fabricate-pnpm-workspace.mjs && node --check scripts/fabricate-pnpm-workspace.mjs && npm test && npm run pack:dry-run"
   },
   "engines": {
     "node": ">=22"
