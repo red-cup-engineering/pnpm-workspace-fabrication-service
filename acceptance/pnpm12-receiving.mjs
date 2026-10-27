@@ -112,6 +112,43 @@ try {
     }
     await assert.rejects(readFile(marker), { code: 'ENOENT' });
   }
+  // CF-PNPM-014: a real PNPM resolver must reject a customer constraint
+  // inconsistent with the locally held provider, rather than install a
+  // different version silently substituted by this fabricator.
+  for (const [requested, compatible] of [['^1.2.0', true], ['^2.0.0', false]]) {
+    const output = join(temp, compatible ? 'range-compatible' : 'range-incompatible');
+    const source = {
+      ...specification,
+      packages: specification.packages.map(item => item.manifest.name === '@receiving/consumer'
+        ? { ...item, manifest: {
+          ...item.manifest,
+          dependencies: { '@receiving/provider': requested },
+        } }
+        : item),
+    };
+    await writeFile(specPath, JSON.stringify(source));
+    mustPass(run(process.execPath,
+      [packedCLI, '--specification', specPath, '--output', output], temp),
+      `fabricate declared source range ${requested}`);
+    const actual = JSON.parse(await readFile(join(output, 'packages/consumer/package.json'), 'utf8'));
+    assert.equal(actual.dependencies['@receiving/provider'], `workspace:${requested}`);
+    const install = run('pnpm', ['install', '--offline', '--no-frozen-lockfile'], output);
+    if (compatible) {
+      mustPass(install, 'PNPM native compatible range receiving');
+      const link = await realpath(join(output, 'packages/consumer/node_modules/@receiving/provider'));
+      assert.equal(link, resolve(output, 'packages/provider'));
+    } else {
+      assert.notEqual(install.status, 0,
+        `PNPM MUST reject incompatible local provider: ${install.stdout}\n${install.stderr}`);
+      // PNPM 12 wraps error prose across lines. Normalize only whitespace,
+      // and require the exact refused requirement and held provider version.
+      const refusal = (install.stdout + install.stderr).replace(/\s+/gu, ' ');
+      assert.match(refusal,
+        /No matching version found for @receiving\/provider@workspace:\^2\.0\.0 inside the workspace/u);
+      assert.match(refusal, /Available versions: 1\.2\.3/u);
+    }
+  }
+  console.log('CF-PNPM-014: PNPM 12.9.1 retained compatible local provider and refused incompatible declared range');
   console.log('CF-PNPM-012: PNPM 12.9.1 real workspace linking, frozen replay, exact observed denials and unknown-script refusal passed');
 } finally {
   await rm(temp, { recursive: true, force: true });

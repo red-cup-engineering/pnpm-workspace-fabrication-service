@@ -7,6 +7,8 @@ on:
       - 'acceptance/**'
       - 'test/**'
       - 'package.json'
+      # README is included in npm pack by default: edits change archive SHA.
+      - 'README.md'
       - '.github/workflows/qualify.yml'
   push:
     branches: [main]
