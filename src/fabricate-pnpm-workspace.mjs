@@ -102,9 +102,29 @@ export function projectPnpmWorkspace(specification) {
   files.set("pnpm-workspace.yaml", `packages:${packages.length ? `\n${packages.map(({ path }) => `  - ${JSON.stringify(path)}`).join("\n")}` : " []"}\n${policyLines.length ? `strictDepBuilds: true\nallowBuilds:\n${policyLines.join("\n")}\n` : ""}`);
   for (const item of packages) {
     const manifest = structuredClone(item.manifest);
+    // A workspace provider's installed version is NOT authority to rewrite a
+    // customer's requested range. Preserve its original constraint and let
+    // pnpm's own workspace resolver independently accept/refuse compatibility.
     for (const field of ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies"]) {
-      if (!manifest[field]) continue;
-      manifest[field] = Object.fromEntries(Object.entries(manifest[field]).map(([name, version]) => internal.has(name) ? [name, `workspace:${internal.get(name)}`] : [name, version]));
+      if (!Object.hasOwn(manifest, field)) continue;
+      const declared = manifest[field];
+      if (!declared || typeof declared !== "object" || Array.isArray(declared))
+        throw new TypeError(`${field} dependency table must be an object`);
+      manifest[field] = Object.fromEntries(Object.entries(declared).map(([name, requested]) => {
+        if (typeof requested !== "string" || !requested.trim() || requested.trim() !== requested)
+          throw new TypeError(`${field} dependency specifier for ${name} must be nonempty text`);
+        if (!internal.has(name)) return [name, requested];
+        if (requested.startsWith("workspace:")) {
+          if (!requested.slice("workspace:".length))
+            throw new TypeError(`internal dependency ${name} requires a workspace range`);
+          return [name, requested];
+        }
+        // npm:, file:, git+, HTTPS and other explicit sources are not a
+        // range. Converting them to a local provider changes source identity.
+        if (/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(requested))
+          throw new TypeError(`internal dependency ${name} declares a foreign source protocol`);
+        return [name, `workspace:${requested}`];
+      }));
     }
     files.set(`${item.path}/package.json`, json(manifest));
   }
