@@ -29,6 +29,32 @@ filesystem effects, and require an empty ordinary output directory. The
 returned SHA-256 digest represents the projected files; it is **not** a
 pnpm install attestation, package-integrity verification or customer acceptance.
 
+## Dependency-contract fidelity
+
+For dependencies whose names match packages in the same fabricated workspace,
+the projector prefixes the **original declared range** with `workspace:`,
+rather than replacing it with the provider package's current version. It
+preserves an existing `workspace:` specifier unchanged, and leaves unrelated
+external package dependencies unchanged. All four dependency tables
+(`dependencies`, `devDependencies`, `optionalDependencies`,
+`peerDependencies`) require string-valued, nonblank specifiers. A source
+protocol such as `npm:`, `file:` or `git+` for an internal package cannot be
+quietly redirected to a different local source.
+
+This fabricator does **not** implement or claim its own SemVer solver. The real
+pinned PNPM installer must independently accept a compatible internal range
+and refuse an incompatible one. The package qualification uses both cases:
+`workspace:^1.2.0` accepts provider `1.2.3`;
+`workspace:^2.0.0` refuses the same source. A generated manifest is only
+an admitted candidate; it is not evidence that the customer's install works.
+
+**Migration:** earlier versions of the generator could replace a consumer's
+declared range with the current local provider version. Regenerate workspaces
+from the original, independently approved specification, inspect changed
+manifests and dependency lockfiles, and rerun pinned PNPM receiving before
+admitting an update. Never infer that an old passing install satisfied the
+original requirement if the generated version was silently substituted.
+
 ## Verify and consume
 
 Run npm run verify with Node 22 or newer. It runs source checks, Node native
