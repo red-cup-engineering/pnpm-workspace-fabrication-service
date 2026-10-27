@@ -36,7 +36,9 @@ const denied = Object.fromEntries([
   'workerd@1.20260828.1',
 ].map(name => [name, false]));
 const externalName = '@fixture/denied-install';
-const externalMatcher = `${externalName}@1.0.0`;
+// A name-wide false rule covers a local tarball; registry-version rules do not.
+const externalMatcher = externalName;
+const registryOnlyMatcher = `${externalName}@1.0.0`;
 const temp = await mkdtemp(join(tmpdir(), 'pnpm-12-receiving-'));
 try {
   const fixture = join(temp, 'external-script-source');
@@ -72,10 +74,11 @@ try {
   mustPass(run('tar', ['-xzf', join(temp, fabricatorArchive[0]), '-C', unpacked], temp), 'unpack fabrication consumer');
   const packedCLI = join(unpacked, 'package', 'scripts', 'fabricate-pnpm-workspace.mjs');
 
-  for (const decision of ['explicit-denial', 'unknown-script']) {
+  for (const decision of ['explicit-denial', 'registry-only-denial', 'unknown-script']) {
     const output = join(temp, decision);
     const policy = { ...specification.buildPolicy };
-    if (decision === 'unknown-script') delete policy[externalMatcher];
+    if (decision !== 'explicit-denial') delete policy[externalMatcher];
+    if (decision === 'registry-only-denial') policy[registryOnlyMatcher] = false;
     await writeFile(specPath, JSON.stringify({ ...specification, buildPolicy: policy }));
     const receipt = JSON.parse(mustPass(run(process.execPath, [packedCLI, '--specification', specPath, '--output', output], temp), `fabricate ${decision}`));
 
@@ -102,6 +105,8 @@ try {
       const policy = JSON.parse(mustPass(run('pnpm', ['config', 'get', '--json', 'allowBuilds'], output), 'pnpm interpreted policy'));
       assert.deepEqual(policy, specification.buildPolicy);
     } else {
+      // A registry-version rule is NOT permission or denial for a tarball
+      // source. An absent rule and a registry-only rule must both be rejected.
       assert.notEqual(install.status, 0, `unreviewed source script must be refused: ${install.stdout}\n${install.stderr}`);
       assert.match(install.stdout + install.stderr, /ERR_PNPM_IGNORED_BUILDS/u);
     }
