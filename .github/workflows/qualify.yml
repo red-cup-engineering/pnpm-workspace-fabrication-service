@@ -1,0 +1,71 @@
+name: Qualify PNPM workspace fabrication
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'acceptance/**'
+      - 'test/**'
+      - 'package.json'
+      - '.github/workflows/qualify.yml'
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-and-packed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Run source/negative tests and packed-CLI receiving
+        run: npm run verify
+  pnpm-12-consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: native-and-packed
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Install pinned native PNPM 12.9.1 without legacy Corepack
+        # Corepack bundled with Node 22.16.0 incorrectly expects pnpm.cjs.
+        # PNPM 12 is native; its pinned npm installer requires its own scripts.
+        # This step does not approve lifecycle scripts for the customer workspace.
+        run: |
+          npm install --global --no-audit --no-fund pnpm@12.9.1
+          test "$(pnpm --version)" = '12.9.1'
+      - name: Receive packed CLI using real PNPM 12.9.1 with positive and negative script controls
+        run: npm run verify:pnpm
+  packaged-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [native-and-packed, pnpm-12-consumer]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Produce byte-comparable packed release candidate and receive via npm
+        run: |
+          set -euo pipefail
+          mkdir -p candidate independent-pack
+          npm pack --ignore-scripts --pack-destination candidate
+          npm pack --ignore-scripts --pack-destination independent-pack
+          test "$(find candidate -maxdepth 1 -name '*.tgz' -type f | wc -l)" -eq 1
+          cmp candidate/*.tgz independent-pack/*.tgz
+          (cd candidate && sha256sum *.tgz > SHA256SUMS && sha256sum --check SHA256SUMS)
+          npm install --prefix installed --offline --ignore-scripts --no-audit --no-fund ./candidate/*.tgz
+          node --input-type=module -e "import assert from 'node:assert/strict'; import {projectPnpmWorkspace} from './installed/node_modules/@red-cup-engineering/pnpm-workspace-fabrication-service/src/fabricate-pnpm-workspace.mjs'; const p=projectPnpmWorkspace({root:{name:'archive-consumer',version:'1.0.0'},pnpmVersion:'12.9.1',buildPolicy:{'esbuild@0.28.1':false},packages:[{path:'packages/app',manifest:{name:'@archive/app',version:'1.0.0'}}]}); assert.match(p.files.get('pnpm-workspace.yaml'), /esbuild@0\.28\.1/);"
+      - name: Preserve unpromoted archive and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnpm-workspace-fabricator-candidate
+          path: candidate/
+          if-no-files-found: error
+          retention-days: 30
