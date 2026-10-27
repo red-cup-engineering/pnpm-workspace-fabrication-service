@@ -33,8 +33,8 @@ pnpm install attestation, package-integrity verification or customer acceptance.
 
 Run npm run verify with Node 22 or newer. It runs source checks, Node native
 unit/negative tests, an npm-packed CLI consumer test that reads real generated
-files, and an npm pack dry run. The packed consumer uses both permitted and
-denied policy decisions; it does not run a pnpm install, run arbitrary
+files, and an npm pack dry run. The packed consumer checks two explicit denied build-script decisions; it does
+not run a pnpm install, run arbitrary
 third-party lifecycle scripts or prove a downstream application boots.
 
 The CLI accepts --specification path/to/specification.json and --output an
