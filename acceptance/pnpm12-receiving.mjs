@@ -112,6 +112,39 @@ try {
     }
     await assert.rejects(readFile(marker), { code: 'ENOENT' });
   }
+  // CF-PNPM-014: a real PNPM resolver must reject a customer constraint
+  // inconsistent with the locally held provider, rather than install a
+  // different version silently substituted by this fabricator.
+  for (const [requested, compatible] of [['^1.2.0', true], ['^2.0.0', false]]) {
+    const output = join(temp, compatible ? 'range-compatible' : 'range-incompatible');
+    const source = {
+      ...specification,
+      packages: specification.packages.map(item => item.manifest.name === '@receiving/consumer'
+        ? { ...item, manifest: {
+          ...item.manifest,
+          dependencies: { '@receiving/provider': requested },
+        } }
+        : item),
+    };
+    await writeFile(specPath, JSON.stringify(source));
+    mustPass(run(process.execPath,
+      [packedCLI, '--specification', specPath, '--output', output], temp),
+      `fabricate declared source range ${requested}`);
+    const actual = JSON.parse(await readFile(join(output, 'packages/consumer/package.json'), 'utf8'));
+    assert.equal(actual.dependencies['@receiving/provider'], `workspace:${requested}`);
+    const install = run('pnpm', ['install', '--offline', '--no-frozen-lockfile'], output);
+    if (compatible) {
+      mustPass(install, 'PNPM native compatible range receiving');
+      const link = await realpath(join(output, 'packages/consumer/node_modules/@receiving/provider'));
+      assert.equal(link, resolve(output, 'packages/provider'));
+    } else {
+      assert.notEqual(install.status, 0,
+        `PNPM MUST reject incompatible local provider: ${install.stdout}\n${install.stderr}`);
+      assert.match(install.stdout + install.stderr,
+        /ERR_PNPM_NO_MATCHING_VERSION_INSIDE_WORKSPACE|No matching version found/u);
+    }
+  }
+  console.log('CF-PNPM-014: PNPM 12.9.1 retained compatible local provider and refused incompatible declared range');
   console.log('CF-PNPM-012: PNPM 12.9.1 real workspace linking, frozen replay, exact observed denials and unknown-script refusal passed');
 } finally {
   await rm(temp, { recursive: true, force: true });
