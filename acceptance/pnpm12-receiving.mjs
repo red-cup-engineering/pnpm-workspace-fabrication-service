@@ -86,7 +86,14 @@ try {
 
     const marker = join(temp, `${decision}.marker`);
     const env = { PNPM_ASSAY_MARKER: marker };
-    const install = run('pnpm', ['install', '--offline', '--no-frozen-lockfile'], output, env);
+    // PNPM 12 resolves its own packageManager config dependency against the
+    // trusted registry on first use, even when its native executable is present.
+    // The first bootstrap may obtain manager metadata; ordinary fixture
+    // dependencies are local tarballs/workspace links. Frozen replay is offline.
+    const firstInstallArgs = decision === 'explicit-denial'
+      ? ['install', '--no-frozen-lockfile']
+      : ['install', '--offline', '--no-frozen-lockfile'];
+    const install = run('pnpm', firstInstallArgs, output, env);
     if (decision === 'explicit-denial') {
       mustPass(install, 'real PNPM 12.9.1 source-denied install');
       mustPass(run('pnpm', ['install', '--offline', '--frozen-lockfile'], output, env), 'real PNPM frozen replay');
