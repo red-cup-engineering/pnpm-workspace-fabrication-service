@@ -12,7 +12,12 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 function run(command, args, cwd, environment = {}) {
-  const child = spawnSync(command, args, { cwd, env: { ...process.env, ...environment }, encoding: 'utf8', timeout: 60_000 });
+  // PNPM 12 otherwise resolves the root packageManager pin through a remote
+  // package-manager bootstrap registry, even when the exact native binary has
+  // been preinstalled. Explicitly REQUIRE the running pinned version rather
+  // than downloading or silently accepting a mismatched pnpm.
+  const pin = command === 'pnpm' ? { pnpm_config_pm_on_fail: 'error' } : {};
+  const child = spawnSync(command, args, { cwd, env: { ...process.env, ...environment, ...pin }, encoding: 'utf8', timeout: 60_000 });
   if (child.error) throw child.error;
   return child;
 }
