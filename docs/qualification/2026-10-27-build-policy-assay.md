@@ -127,3 +127,50 @@ installation of its eight affected native dependencies, exercised the
 FeltOS/MetroPlat/Web/Search Console deployment graph or received physical
 WSL capacity and an actual release/customer acceptance. No signed attestation,
 independent production benefit, or revenue is asserted.
+
+## Third bounded correction: do not rewrite customer dependency contracts (2026-10-27)
+
+**Original factory and receiving:** This remains the existing
+`pnpm-workspace-fabrication-service` producer, stacked on its independently
+qualified build-policy PR #1. It is **not** a replacement dependency resolver.
+The original Bare Cedar Fog consumer #595, its eight source-specific policy
+denials and its withheld full install/application boot remain unchanged.
+
+**Observed flaw:** the original internal-package projector replaced every
+declared consumer range with the found provider's current version. In
+particular, `@customer/provider: ^3.0.0` against provider version `2.0.0`
+was emitted as `workspace:2.0.0`. This changed the customer's admitted
+requirement rather than permitting the real PNPM resolver to reject an
+incompatible source. `workspace:^2.0.0` was double-prefixed; non-string
+specifiers and null tables were silently allowed; a customer-selected
+`npm:`/`file:`/`git+` source was replaced with an unrelated local provider.
+These are contract/data-integrity failures, not an observed malicious exploit.
+
+| Requirement | Original acceptance condition | Independent receiving |
+| --- | --- | --- |
+| CF-PNPM-014 | For internal dependencies, retain the customer's exact range (including existing `workspace:`), and never install incompatible local provider versions by substitution | `test/dependency-contract.test.mjs` original-range assertions; packed CLI against genuine PNPM 12.9.1 accepts `^1.2.0` for local 1.2.3 and rejects `^2.0.0` |
+| CF-PNPM-015 | Every explicitly declared dependency table is an object, and each specifier is nonempty string data; reject rather than coerce, including in pure projection | Negative tests for null, array, text, number, boolean and blank specifiers |
+| CF-PNPM-016 | An explicit foreign source protocol for an internal package may not be silently rewritten to a local workspace dependency | Negative tests for `npm:`, `file:`, and `git+https:`; external package specifiers remain unchanged |
+
+**RED-before-repair witness:** commit
+[d35afe0](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/commit/d35afe06dade922a1814bf9f10c5a950acf7e738)
+added the three requirement-derived tests first. Actual
+[GitHub run 40560322880](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/actions/runs/40560322880)
+ran Node 22.16.0: **16 original tests passed, all three new tests failed**.
+This is demonstrated on original source, not a hypothetical defect.
+
+**Source corrective patch:**
+[163d67f](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/commit/163d67f1df84f01de6fd683fe20b7389da8065ce)
+updates only the incumbent projector, retaining original dependency
+constraints and permitting PNPM's actual version resolver to decide
+compatibility. The distinct original
+[342e5df](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/commit/342e5dfa8aad73636b04533cd2590ff358391bd1)
+adds packed-CLI real-PNPM compatible and incompatible range receiving.
+
+**Qualification status:** new source-native and PNPM 12 release checks must be
+read from the exact current branch head before this scope is marked accepted.
+The prior PR #1 archive/sha does not attest this changed source. Release still
+requires original owner's independent review, promotion of parent PR #1, and
+the real Bare Cedar Fog dependency closure and application receiving. No
+deployment, actual customer release, published npm package, model purchase,
+signed build provenance, revenue or beneficiary acceptance is claimed.
