@@ -76,3 +76,54 @@ an implicit `allowBuilds: true`.
 **Risk scope:** symlink tests close static redirection, not a malicious
 concurrent rename race. Genuine untrusted caller filesystem confinement is an
 OS-host duty. No existing PNPM dependency graph or original lockfile was changed.
+
+## Original hosted runner receiving and artifact qualification (2026-10-27)
+
+The original source CI runner did execute after the preceding local-only
+qualification; the historical pre-run hold above is retained to show the
+progression rather than retrospectively altering earlier observations.
+
+- Corepack as bundled with Node 22.16.0 failed to invoke native PNPM 12:
+  [run 40548695824](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/actions/runs/40548695824)
+  attempted a removed `bin/pnpm.cjs`. Pinned `npm install -g pnpm@12.9.1`
+  repaired the original bootstrap without permitting third-party builds.
+- PNPM 12's first invocation requires package-manager metadata from the
+  trusted npm registry despite an exact installed binary: offline bootstrap
+  was independently refused. Only first-time manager metadata may resolve
+  online; local fixture tarball/workspace dependencies and frozen replay
+  remain source-bound.
+- Registry-version-only `@fixture/denied-install@1.0.0: false` is not a
+  source-wide tarball denial, as the real PNPM runner proved. A bare
+  `@fixture/denied-install: false` explicitly denies the fixture tarball;
+  missing or registry-version-only rules both remain unreviewed and fail
+  `ERR_PNPM_IGNORED_BUILDS`, without producing the sentinel side effect.
+  Eight original BCF *registry*-version denials remain unchanged.
+- [Hosted run 40550193310](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/actions/runs/40550193310)
+  accepted both genuine qualification jobs at source
+  `18961bc4fb68c0a23fb9d31b2957b04ab010f493`: 16/16 native tests
+  and real PNPM 12.9.1 install/link/frozen offline replay, including both
+  positive and negative lifecycle-script receiving.
+- **CF-PNPM-013: independently reproducible distributable qualification.**
+  From source `4a25049f3dcda8bd081fe960253c04c706f58c47`,
+  [run 40551150634](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/actions/runs/40551150634)
+  completed **three jobs successfully**, including two byte-identical npm
+  packs, SHA-256 verification, and a fresh offline npm install with an actual
+  external import of the library. The retained [artifact
+  #12754713565](https://github.com/red-cup-engineering/pnpm-workspace-fabrication-service/actions/runs/40551150634/artifacts/12754713565)
+  contains the unpromoted `0.0.0.tgz` candidate and `SHA256SUMS`. Its
+  tarball digest is `003bd1a244ce1360850dc246f8b213b74a93d54766129f848191455aaaa987c1`.
+  The ZIP was downloaded outside Actions, its checksum verified, and the
+  archive installed offline into an independent npm consumer whose import
+  and one verified workspace projection succeeded.
+
+**Source revision discipline:** the recorded tarball checksum belongs ONLY to
+the exact commit above. Any change to a packaged file such as README alters
+the artifact identity and must receive a new run/checksum. Check the current
+draft PR before treating this chronological record as its newest qualification.
+
+**Unresolved release contracts:** the factory is not merged or published,
+and original BCF PR #595 has not successfully executed a complete pinned
+installation of its eight affected native dependencies, exercised the
+FeltOS/MetroPlat/Web/Search Console deployment graph or received physical
+WSL capacity and an actual release/customer acceptance. No signed attestation,
+independent production benefit, or revenue is asserted.

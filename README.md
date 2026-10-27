@@ -33,9 +33,8 @@ pnpm install attestation, package-integrity verification or customer acceptance.
 
 Run npm run verify with Node 22 or newer. It runs source checks, Node native
 unit/negative tests, an npm-packed CLI consumer test that reads real generated
-files, and an npm pack dry run. The packed consumer checks two explicit denied build-script decisions; it does
-not run a pnpm install, run arbitrary
-third-party lifecycle scripts or prove a downstream application boots.
+files, and an npm pack dry run. The native packed-CLI consumer checks two explicit denied build-script
+settings but does not run pnpm or prove a downstream application boots.
 
 The CLI accepts --specification path/to/specification.json and --output an
 empty directory path. A specification includes root.name, root.version,
@@ -67,13 +66,22 @@ may subsequently create additional files without changing that receipt.
 `npm run verify` performs local source and packed-CLI tests. The independent
 `npm run verify:pnpm` requires **real PNPM 12.9.1**, creates an external package
 with a harmless sentinel lifecycle script, consumes the npm-packed factory,
-installs a generated workspace offline, replays a frozen lockfile, receives
-the original observed Bare Cedar Fog eight-package denial decisions, and
-expects an unreviewed script to fail closed. The tests make no registry or
-third-party network dependencies after the package manager has been installed.
-The GitHub qualification workflow separates native qualification from this
-PNPM installation gate. Neither test substitutes for installing the full Bare
-Cedar Fog dependency graph or running its actual release receiver.
+installs a generated workspace of *local* fixture tarballs and workspace
+links, replays its frozen lockfile offline, reads the exact eight observed
+Bare Cedar Fog registry-version denials, and refuses unreviewed build scripts.
+The first installation may access the trusted npm registry to resolve PNPM 12's
+package-manager bootstrap metadata, even though the **exact native PNPM
+12.9.1 executable** has already been installed by npm. The independent frozen
+replay and unreviewed-script negative installation are offline.
+
+The GitHub qualification workflow runs native and PNPM tests independently.
+Only after both pass does it double-pack the library, check byte-identical
+archives and SHA-256, install the packed candidate into a fresh npm consumer,
+and retain the unpromoted archive under the workflow run's Actions artifacts
+for 30 days. That artifact is not an npm publication, SLSA attestation, or
+production customer release. The original Bare Cedar Fog eight dependency
+installations, WSL capacity receiver, production boot, and customer acceptance
+remain separately qualified work.
 
 See [the source qualification record](docs/qualification/2026-10-27-build-policy-assay.md)
 for requirement IDs, source comparisons and current execution limits.
