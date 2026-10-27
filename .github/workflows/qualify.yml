@@ -32,10 +32,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.16.0'
-      - name: Install pinned real PNPM program
+      - name: Install pinned native PNPM 12.9.1 without legacy Corepack
+        # Corepack bundled with Node 22.16.0 incorrectly expects pnpm.cjs.
+        # PNPM 12 is native; its pinned npm installer requires its own scripts.
+        # This step does not approve lifecycle scripts for the customer workspace.
         run: |
-          corepack enable
-          corepack prepare pnpm@12.9.1 --activate
+          npm install --global --no-audit --no-fund pnpm@12.9.1
           test "$(pnpm --version)" = '12.9.1'
       - name: Receive packed CLI using real PNPM 12.9.1 with positive and negative script controls
         run: npm run verify:pnpm
