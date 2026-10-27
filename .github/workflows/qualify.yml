@@ -60,7 +60,7 @@ jobs:
           test "$(find candidate -maxdepth 1 -name '*.tgz' -type f | wc -l)" -eq 1
           cmp candidate/*.tgz independent-pack/*.tgz
           (cd candidate && sha256sum *.tgz > SHA256SUMS && sha256sum --check SHA256SUMS)
-          npm install --prefix installed --offline --ignore-scripts --no-audit --no-fund candidate/*.tgz
+          npm install --prefix installed --offline --ignore-scripts --no-audit --no-fund ./candidate/*.tgz
           node --input-type=module -e "import assert from 'node:assert/strict'; import {projectPnpmWorkspace} from './installed/node_modules/@red-cup-engineering/pnpm-workspace-fabrication-service/src/fabricate-pnpm-workspace.mjs'; const p=projectPnpmWorkspace({root:{name:'archive-consumer',version:'1.0.0'},pnpmVersion:'12.9.1',buildPolicy:{'esbuild@0.28.1':false},packages:[{path:'packages/app',manifest:{name:'@archive/app',version:'1.0.0'}}]}); assert.match(p.files.get('pnpm-workspace.yaml'), /esbuild@0\.28\.1/);"
       - name: Preserve unpromoted archive and checksum
         uses: actions/upload-artifact@v4
