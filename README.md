@@ -45,3 +45,35 @@ for an executable specification and output assay.
 
 Requirement identifiers and qualification limits are recorded in
 [docs/qualification/2026-10-27-build-policy-assay.md](docs/qualification/2026-10-27-build-policy-assay.md).
+
+## Deterministic projection and controlled receiving
+
+The source specification is a JSON value tree. The engine rejects accessors,
+non-JSON values and PNPM glob selectors in package paths before any materialization.
+Equivalent source trees produce byte-identical manifests and a stable digest
+regardless of property insertion order or source package order. A projection's
+file view supports read-only Map-style operations (`get`, `has`, iteration,
+`keys`, `values`, `entries`, `forEach`); its file map and package identities
+cannot be changed after its digest is calculated. These are compatibility
+constraints on the public projection interface.
+
+The materializer refuses symlinks in any *existing ancestor* of the output
+path, not only at the output itself. This is an alias check, **not** confinement
+against concurrently hostile filesystem reparenting; a production host must
+supply the appropriate OS isolation and immutable parent custody. A factory
+receipt attests only to source-created files and their digest; a PNPM install
+may subsequently create additional files without changing that receipt.
+
+`npm run verify` performs local source and packed-CLI tests. The independent
+`npm run verify:pnpm` requires **real PNPM 12.9.1**, creates an external package
+with a harmless sentinel lifecycle script, consumes the npm-packed factory,
+installs a generated workspace offline, replays a frozen lockfile, receives
+the original observed Bare Cedar Fog eight-package denial decisions, and
+expects an unreviewed script to fail closed. The tests make no registry or
+third-party network dependencies after the package manager has been installed.
+The GitHub qualification workflow separates native qualification from this
+PNPM installation gate. Neither test substitutes for installing the full Bare
+Cedar Fog dependency graph or running its actual release receiver.
+
+See [the source qualification record](docs/qualification/2026-10-27-build-policy-assay.md)
+for requirement IDs, source comparisons and current execution limits.

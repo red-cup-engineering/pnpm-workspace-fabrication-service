@@ -35,3 +35,44 @@ was observed. The CLI consumer's test source is distinct from the projection
 logic, but it is not a separate organization or production receiving office.
 Do not merge as a production-release qualification without original owning
 runner and consumer validation.
+
+## Second PACE-S/MAPE-K bounded correction (2026-10-27)
+
+Followed the exact open draft source and its original BCF customer hold.
+Original source reading: PR #1, main and repair branches, current issue/PR list,
+GitHub Actions run inventory (no runs), PR review threads (none), and BCF PR #595.
+Original RN verification recovered the packed CLI, which the earlier ZIP evidence
+bundle omitted. Restored original blob b5f1825c8e5dc37dc1ca0e857c603806b3578dca,
+then independently re-ran `npm run verify` on Node 22.16.0: **9/9 pass**.
+
+New independently authored negative tests were executed **before changing the
+factory**: **0/5 pass, five observed failures**. None of these new tests simply
+asserts the generator's existing behavior.
+
+| Requirement | Independent falsifier and corrected boundary |
+| --- | --- |
+| CF-PNPM-007 | A literal workspace path such as `packages/*` changes PNPM membership; refuse selectors, shell-like negation and glob metacharacters rather than writing a misleading explicit package list |
+| CF-PNPM-008 | An output under an existing parent symlink wrote into an unrelated empty directory; inspect every existing ancestor before and after creating the output path |
+| CF-PNPM-009 | Equivalent requirement JSON with reversed key orders produced different artifact bytes and digests; stable sorted key/codomain admission rejects non-finite, accessor-backed and non-JSON values, and explicit empty `packages: []` |
+| CF-PNPM-010 | The projected `Map` could be mutated after the digest was issued despite `Object.freeze` on the projection; replace it with a read-only Map-style view, deeply freeze package identities and receipt file names |
+| CF-PNPM-011 | Independent digest recomputation on actual output files disagreed with the receipt because locale-aware sorting differs from byte-stable path ordering; use one deterministic code-unit order |
+| CF-PNPM-012 | A native Node suite cannot establish PNPM 12 policy enforcement or script denial; add a separate real PNPM 12.9.1 consumer using the npm-packed CLI, offline local fixture tarball, exact eight-name BCF denial map, internal workspace linking, frozen replay and a deliberately unreviewed postinstall script refusal |
+
+**Observed local evidence:** on Node 22.16.0, `npm run verify` now returns **16/16
+passed**, no failed assertions. Syntax checks, npm package archive inspection,
+real packed-CLI consumer and independent disk receipt recomputation pass.
+`node --check` accepts the PNPM-specific external receiving script, and the
+GitHub Actions YAML parses; neither executes the real PNPM gate on this offline
+host. `pnpm` is absent and network installation is unavailable locally.
+
+**Remaining hold:** GitHub-hosted workflow admission and the real PNPM
+12.9.1 install/denial test are unobserved until the original runner receives
+and executes this branch. This PR does **not** close BCF PR #595 or its source
+release, its physical WSL storage shortfall, the unresolved Go/No-Go for eight
+native packages, or production application boot. A failed independent assay
+must remain a release hold, never be papered over with `--ignore-scripts` or
+an implicit `allowBuilds: true`.
+
+**Risk scope:** symlink tests close static redirection, not a malicious
+concurrent rename race. Genuine untrusted caller filesystem confinement is an
+OS-host duty. No existing PNPM dependency graph or original lockfile was changed.
