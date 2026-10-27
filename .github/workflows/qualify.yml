@@ -4,6 +4,7 @@ on:
     paths:
       - 'src/**'
       - 'scripts/**'
+      - 'acceptance/**'
       - 'test/**'
       - 'package.json'
       - '.github/workflows/qualify.yml'
