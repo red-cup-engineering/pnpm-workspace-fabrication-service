@@ -140,8 +140,12 @@ try {
     } else {
       assert.notEqual(install.status, 0,
         `PNPM MUST reject incompatible local provider: ${install.stdout}\n${install.stderr}`);
-      assert.match(install.stdout + install.stderr,
-        /ERR_PNPM_NO_MATCHING_VERSION_INSIDE_WORKSPACE|No matching version found/u);
+      // PNPM 12 wraps error prose across lines. Normalize only whitespace,
+      // and require the exact refused requirement and held provider version.
+      const refusal = (install.stdout + install.stderr).replace(/\s+/gu, ' ');
+      assert.match(refusal,
+        /No matching version found for @receiving\/provider@workspace:\^2\.0\.0 inside the workspace/u);
+      assert.match(refusal, /Available versions: 1\.2\.3/u);
     }
   }
   console.log('CF-PNPM-014: PNPM 12.9.1 retained compatible local provider and refused incompatible declared range');
